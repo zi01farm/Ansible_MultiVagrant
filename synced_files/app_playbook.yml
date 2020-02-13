@@ -1,0 +1,61 @@
+---
+- hosts: all
+  become: yes
+  environment:
+    DB_HOST: "mongodb://192.168.10.200:27017/posts"
+  tasks:
+    - name: update and upgrade Ubuntu
+      apt:
+        update_cache: yes
+        upgrade: yes
+    - name: install nginx
+      apt: name=nginx state=latest
+    - name: install git
+      apt: name=git state=latest
+    - name: install software properties
+      apt: name=python-software-properties
+    - name: get nodejs GPG key
+      apt_key:
+        url: "https://deb.nodesource.com/gpgkey/nodesource.gpg.key"
+        state: present
+    - name: get nodejs repo
+      apt_repository:
+        repo: "deb https://deb.nodesource.com/node_6.x xenial main"
+        state: present
+    - name: install nodejs
+      apt: name=nodejs state=latest force=yes
+    - name: install packages
+      npm:
+        path: /home/ubuntu/synced_files/app
+    - name: install pm2 global
+      npm:
+        name: pm2
+        global: yes
+    - name: proxy- remove default
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+    - name: proxy- link to sites-available
+      file:
+        src: /home/ubuntu/synced_files/reverse-proxy.conf
+        dest: /etc/nginx/sites-available/reverse-proxy.conf
+        state: link
+    - name: proxy- link to sites-enabled
+      file:
+        src: /etc/nginx/sites-available/reverse-proxy.conf
+        dest: /etc/nginx/sites-enabled/reverse-proxy.conf
+        state: link
+    - name: proxy- restart nginx
+      service:
+        name: nginx
+        state: restarted
+    - name: seed the application
+      command:
+        chdir: /home/ubuntu/synced_files/app
+        cmd: node seeds/seed.js
+    - name: application is running. press ctrl C to return to git (app will remain running)
+      command:
+        chdir: /home/ubuntu/synced_files/app
+        cmd: node app.js
+
+
